@@ -1,11 +1,13 @@
 import React, { useEffect, useState, useRef, useCallback } from "react";
-import { Media, fetchData } from "@/utils/fetchData";
+import { Media, fetchAnimeList } from "@/utils/fetchData";
 import Head from "next/head";
 import Image from "next/image";
-import Card from "@/components/Card";
-import Skeleton from "@/components/Skeleton";
+import Loading from "@/components/Loading";
+import GenreChips from "@/components/GenreChip";
+import { useRouter } from 'next/router';
 
 export default function Home() {
+  const router = useRouter();
   const [animeList, setAnimeList] = useState<Media[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [pagePagination, setPagePagination] = useState({
@@ -17,41 +19,47 @@ export default function Home() {
     perPage: 10,
   });
 
-  const fetchDataAndUpdateState = useCallback(async (page: number, perPage: number) => {
-    setIsLoading(true);
-    const variables = {
-      page,
-      perPage,
-    };
-    const pageData = await fetchData(variables);
-    const newAnimeList = pageData
-      ? pageData.media.map((media) => ({
-          id: media.id,
-          title: {
-            romaji: media.title.romaji,
-            english: media.title.english,
-            native: media.title.native,
-          },
-          bannerImage: media.bannerImage,
-          coverImage: {
-            extraLarge: media.coverImage.extraLarge,
-            large: media.coverImage.large,
-            medium: media.coverImage.medium,
-            color: media.coverImage.color,
-          },
-        }))
-      : [];
+  const fetchDataAndUpdateState = useCallback(
+    async (page: number, perPage: number) => {
+      setIsLoading(true);
+      const variables = {
+        page,
+        perPage,
+      };
+      const pageData = await fetchAnimeList(variables);
+      const newAnimeList = pageData
+        ? pageData.media.map((media) => ({
+            id: media.id,
+            title: {
+              romaji: media.title.romaji,
+              english: media.title.english,
+              native: media.title.native,
+            },
+            bannerImage: media.bannerImage,
+            coverImage: {
+              extraLarge: media.coverImage.extraLarge,
+              large: media.coverImage.large,
+              medium: media.coverImage.medium,
+              color: media.coverImage.color,
+            },
+            genres: media.genres,
+            status: media.status,
+            season: media.season
+          }))
+        : [];
 
-    if (pageData && pageData.pageInfo) {
-      setPagePagination((prevState) => ({
-        ...prevState,
-        currentPage: pageData.pageInfo.currentPage,
-      }));
-    }
+      if (pageData && pageData.pageInfo) {
+        setPagePagination((prevState) => ({
+          ...prevState,
+          currentPage: pageData.pageInfo.currentPage,
+        }));
+      }
 
-    setAnimeList(prevList => [...prevList, ...newAnimeList]);
-    setIsLoading(false);
-  }, []);
+      setAnimeList((prevList) => [...prevList, ...newAnimeList]);
+      setIsLoading(false);
+    },
+    []
+  );
 
   useEffect(() => {
     fetchDataAndUpdateState(pagePagination.page, pagePagination.perPage);
@@ -68,8 +76,11 @@ export default function Home() {
     observer: IntersectionObserver
   ) {
     const lastAnime = entries[entries.length - 1];
-    if(!lastAnime.isIntersecting) return
-    fetchDataAndUpdateState(pagePagination.currentPage + 1, pagePagination.perPage);
+    if (!lastAnime.isIntersecting) return;
+    fetchDataAndUpdateState(
+      pagePagination.currentPage + 1,
+      pagePagination.perPage
+    );
   }
 
   function useIntersectionObserver(
@@ -100,6 +111,10 @@ export default function Home() {
 
   useIntersectionObserver(animeListRef, observerOptions, handleObserver);
 
+  function handleClickedList(id: number) {
+    router.push(`/anime-detail/${id}`)
+  }
+
   return (
     <>
       <Head>
@@ -115,30 +130,27 @@ export default function Home() {
               Anime List
             </h1>
             {isLoading ? (
-              <div className="flex items-center justify-center w-full h-screen">
-                <div className="px-3 py-1 text-xs font-medium leading-none text-center text-blue-800 bg-blue-200 rounded-full animate-pulse dark:bg-blue-900 dark:text-blue-200">
-                  loading...
-                </div>
-              </div>
+              <Loading />
             ) : (
-              <div className="py-8" >
+              <div className="py-8 cursor-pointer">
                 <div className="grid grid-cols-3 gap-5 ">
-                  {animeList.map((item) => (
+                  {animeList.map((item, index) => (
                     <div
-                      key={item.id}
+                      key={index}
                       className=" flex gap-x-3 border border-slate-300 rounded shadow "
                       ref={animeListRef}
+                      onClick={() => handleClickedList(item.id)}
                     >
                       {item.bannerImage !== null ? (
                         <Image
-                          src={item.coverImage.large}
-                          width={200}
-                          height={200}
+                          src={item.coverImage.extraLarge}
+                          width={250}
+                          height={250}
                           alt={item.title.romaji}
                           loading="lazy"
                         />
                       ) : (
-                        <div className="flex items-center justify-center w-[185px] h-full bg-gray-300 rounded dark:bg-gray-700">
+                        <div className="flex items-center justify-center w-1/3 h-full bg-gray-300 rounded dark:bg-gray-700">
                           <svg
                             className="w-12 h-12 text-gray-200"
                             xmlns="http://www.w3.org/2000/svg"
@@ -150,7 +162,21 @@ export default function Home() {
                           </svg>
                         </div>
                       )}
-                      <div className="pr-5">Title : {item.title.romaji}</div>
+                      <div className="px-2 flex flex-col gap-y-5">
+                        <h2 className=" text-2xl font-semibold">
+                          {item.title.romaji}
+                        </h2>
+                        <p className="font-semibold">
+                          Status: {item.status}
+                        </p>
+                        <p className="font-semibold">
+                          Season: {item.season}
+                        </p>
+                        <div className="flex gap-x-2">
+                          <p className="font-semibold">Genre: </p>
+                          <GenreChips genres={item.genres} />
+                        </div>
+                      </div>
                     </div>
                   ))}
                 </div>
