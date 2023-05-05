@@ -12,6 +12,9 @@ export interface Media {
     medium: string;
     color: string;
   };
+  genres: [];
+  status: string;
+  season: string;
 }
 
 export interface PageInfo {
@@ -36,7 +39,7 @@ interface Variables {
   perPage: number;
 }
 
-export async function fetchData(variables: Variables): Promise<Page> {
+export async function fetchAnimeList(variables: Variables): Promise<Page> {
   const query = `
       query ($page: Int, $perPage: Int) {
         Page (page: $page, perPage: $perPage) {
@@ -61,6 +64,9 @@ export async function fetchData(variables: Variables): Promise<Page> {
                     medium
                     color
                 }
+                genres
+                status
+                season
             }
         }
       }
